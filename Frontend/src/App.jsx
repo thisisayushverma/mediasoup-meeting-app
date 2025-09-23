@@ -61,6 +61,7 @@ function App() {
 
         const data = await response.json();
         console.log("data", data);
+
         if(data.isLive){
           navigate(`/live/${streamingRoomId}`)
         }
@@ -102,7 +103,7 @@ function App() {
             </div>
           </div>
           <div className='h-[1px] w-[40%] bg-[#5d5c5c]' ></div>
-          <div className='w-[45%] flex flex-col gap-3 p-2 py-5 rounded-md items-center '>
+          {/* <div className='w-[45%] flex flex-col gap-3 p-2 py-5 rounded-md items-center '>
             <h1 className='text-2xl font-semibold text-center'>Live Stream</h1>
             <form className='w-full flex flex-col gap-3 ' onSubmit={(e) => handleStartStream(e)}>
               <input
@@ -114,7 +115,7 @@ function App() {
               />
               <button className='text-center bg-[#323131] font-semibold text-xl p-2 rounded-md cursor-pointer'>Join</button>
             </form>
-          </div>
+          </div> */}
         </div>
       </div>
     </>

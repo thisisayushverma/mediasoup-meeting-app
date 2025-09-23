@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import Card from '../components/Card'
 import useSocket from '../context/socket.jsx'
 import * as mediasoupClient from "mediasoup-client"
@@ -8,6 +8,7 @@ import { useMedia } from '../context/media.jsx'
 
 function Meeting() {
     const roomID = useRef(useParams().roomId)
+    const [roomValue, setRoomValue] = useState(roomID.current)
     const [mic, setMic] = useState(false)
     const [cam, setCam] = useState(false)
     const [screen, setScreen] = useState(false)
@@ -20,7 +21,8 @@ function Meeting() {
     const camRef = useRef(null);
     const { consumers, producers, setConsumers, setProducers, biggerStream, setBiggerStream } = useMedia();
     const [liveStream, setLiveStream] = useState(false);
-    const [liveUpStream,setLiveUpStream] = useState(new MediaStream());
+    const [liveUpStream, setLiveUpStream] = useState(new MediaStream());
+    const navigate = useNavigate();
 
 
 
@@ -49,10 +51,24 @@ function Meeting() {
             socketRef.current.emit("join-room", ({ roomId: roomID.current }));
         }
 
+
+        socketRef.current.on("user-left", (data) => {
+            const { peerId } = data;
+
+            setConsumers(prev => {
+                console.log(prev);
+                const newMap = new Map(prev);
+                newMap.delete(peerId);
+                return newMap
+            })
+
+        })
+
+
         socketRef.current.on("join-room-response", async (data) => {
             console.log(data);
             // taking createTransport credential from BE and setting transport way
-            const { codecsDetails, sendTransportParams, recvTransportParams, exists, roomId } = data
+            const { codecsDetails, sendTransportParams, recvTransportParams, exists, roomId, isProducerExists } = data
             if (exists === false) {
                 alert("room is not exist, Create new room / Try again later")
                 return;
@@ -60,6 +76,7 @@ function Meeting() {
             if (roomID.current === undefined) {
                 console.log("roomId is undefined", roomId);
                 roomID.current = roomId
+                setRoomValue(roomId)
             }
             await device.load({ routerRtpCapabilities: codecsDetails })
                 .then(() => {
@@ -126,6 +143,9 @@ function Meeting() {
                         });
                     });
 
+                    if (isProducerExists) {
+                        socketRef.current.emit("take-all-producer", { roomId });
+                    }
 
                 })
                 .catch(err => console.log(err))
@@ -140,10 +160,10 @@ function Meeting() {
 
             // })
 
-            if (peerId === socketRef.current.id) {
-                console.log("you are calling yourself");
-                return;
-            }
+            // if (peerId === socketRef.current.id) {
+            //     console.log("you are calling yourself");
+            //     return;
+            // }
 
             // 2) Make sure recvTransport exists
             if (!receiveTransport.current) {
@@ -211,10 +231,13 @@ function Meeting() {
         })
 
         return () => {
-            socketRef.current.emit("end-live-stream",{
+            socketRef.current.emit("end-live-stream", {
                 roomId: roomID.current
             })
             socketRef.current.disconnect((roomID.current));
+            sendTransport.current?.close();
+            receiveTransport.current?.close();
+            // all media track should remove
         }
     }, [])
 
@@ -222,6 +245,7 @@ function Meeting() {
     useEffect(() => {
         const handleLiveStream = async () => {
             if (liveStream) {
+                console.log("i come for live stream");
                 // send req to backend to start live stream
                 const liveStream = await getDisplayMedia({
                     video: {
@@ -229,14 +253,14 @@ function Meeting() {
                     }
                 })
 
-                setLiveUpStream(prev =>{
+                setLiveUpStream(prev => {
                     const tempStream = new MediaStream(prev ? prev.getTracks() : []);
                     tempStream?.addTrack(liveStream.getVideoTracks()[0]);
                     console.log("temp stream live on", tempStream.getTracks());
                     return tempStream
                 })
 
-                const  producer = await sendTransport.current?.produce({
+                const producer = await sendTransport.current?.produce({
                     track: liveStream.getVideoTracks()[0],
                     kind: "video",
                     appData: {
@@ -249,7 +273,7 @@ function Meeting() {
                 producer.on("trackended", () => console.log("Track ended"));
                 console.log("Producer created with id:", producer.id);
 
-                socketRef.current.emit("start-live-stream",{
+                socketRef.current.emit("start-live-stream", {
                     roomId: roomID.current,
                     producerId: producer.id,
                     // rtpCapabilities: device.rtpCapabilities,
@@ -258,6 +282,7 @@ function Meeting() {
             }
             else {
                 // send req to backend to stop live stream
+                console.log("i come for end live stream");
                 setLiveUpStream(prev => {
                     const tempStream = new MediaStream(prev ? prev.getTracks() : []);
                     tempStream?.getTracks().forEach((track) => {
@@ -270,7 +295,7 @@ function Meeting() {
                 })
 
 
-                socketRef.current.emit("end-live-stream",{
+                socketRef.current.emit("end-live-stream", {
                     roomId: roomID.current
                 })
 
@@ -407,10 +432,20 @@ function Meeting() {
     }, [screen])
 
 
+    const handleClose = () => {
+        socketRef.current.emit("leave-room", {
+            roomId: roomID.current
+        })
+        socketRef.current.disconnect();
+        navigate("/");
+    }
+
+
 
     return (
         <div className='text-white h-screen w-full border flex gap-2 relative'>
             <div className='w-[80%] border'>
+                <h1 className='absolute bottom-5 left-10 rounded-md  text-lg p-2 bg-[#363030]'>{roomValue}</h1>
                 <div className='w-full h-[90%] border'>
                     <video ref={camRef} className='border-2 h-full w-full' autoPlay></video>
                 </div>
@@ -435,7 +470,7 @@ function Meeting() {
                     <button className={`px-3 rounded-md font-semibold text-2xl cursor-pointer ${screen ? 'bg-green-900' : 'bg-red-900'}`} onClick={() => setScreen(prev => !prev)}>
                         Screen Share
                     </button>
-                    <button className='px-3 rounded-md font-semibold text-2xl cursor-pointer bg-red-900'>
+                    <button className='px-3 rounded-md font-semibold text-2xl cursor-pointer bg-red-900' onClick={handleClose}>
                         Close
                     </button>
                 </div>
