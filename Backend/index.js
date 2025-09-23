@@ -7,10 +7,10 @@ import MediaSoupManager from "./mediasoup.js"
 import Rooms from "./room.js";
 import { createRouter } from "./routerManager.js";
 import Peer from "./peer.js";
-import { connected } from "process";
 import { startFFmpeg, stopffmpeg } from "./ffmpegWorker.js";
 import path from "path";
 import fs from "fs";
+import { all } from "axios";
 
 
 const app = express();
@@ -98,9 +98,9 @@ io.on("connection", (socket) => {
         const { roomId, kind, rtpParameters, appData, transportId } = data;
 
         console.log(appData);
-        if (appData === "live") {
+        if (appData.mediaTag === "live") {
             // now send screen share video and other audio to different section
-
+            
             return;
         }
         const router = worker.getRouter(roomId)
@@ -114,7 +114,7 @@ io.on("connection", (socket) => {
             const producer = await peer.getTransport(transportId).produce({ kind, rtpParameters, appData: appData });
             // console.log(producer);
             // peer.addProducer(producer);
-            rooms.addProducer(router.id, producer);
+            rooms.addProducer(router.id, {producer,appData});
 
             socket.to(roomId).emit("peer-produced", {
                 producerId: producer.id,
@@ -236,6 +236,11 @@ io.on("connection", (socket) => {
 
         const recvTransportParams = await worker.createTransport(roomId, peer, false);
 
+        // check producer is already present or not
+
+        const isProducerExists = rooms.getProducers(router.id);
+        
+
 
         // console.log(peer.getTransport(transportParams.id));
         console.log("all thing done");
@@ -245,10 +250,33 @@ io.on("connection", (socket) => {
             creator: true,
             sendTransportParams,
             recvTransportParams,
-            codecsDetails: router.rtpCapabilities
+            codecsDetails: router.rtpCapabilities,
+            isProducerExists:isProducerExists.length>0?true:false
         });
         socket.to(roomId).emit("user-joined", { socketId: socket.id });
         // socket.emit("join-status", { roomId, exists: true, creator: false });
+    })
+    
+
+    socket.on('take-all-producer',(data)=>{
+        console.log("take all producer");
+        const {roomId} = data;
+        try {
+            const router = worker.getRouter(roomId);
+            const allProducer = rooms.getProducers(router.id);
+
+            allProducer.map((producer)=>{
+                socket.emit("peer-produced", {
+                    producerId: producer.producer.id,
+                    kind: producer.producer.kind,
+                    appData: producer.producer.appData,
+                    peerId: producer.appData.peerId
+                });
+            })
+
+        } catch (error) {
+            console.log("error",error);
+        }
     })
 
     socket.on('leave-room', (data) => {
@@ -322,6 +350,12 @@ io.on("connection", (socket) => {
         } catch (error) {
             console.log("error while deleting stored file", error);
         }
+    })
+
+
+    socket.on("leave-room",(data)=>{
+        const {roomId} = data;
+        io.to(roomId).emit("user-left",{peerId:socket.id});
     })
 })
 

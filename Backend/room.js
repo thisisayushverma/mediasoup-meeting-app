@@ -25,14 +25,14 @@ class Room {
 
     addProducer(routerId, producer) {
         const producerArray = this.producers.get(routerId) || [];
-        const newProducerArray = producerArray.filter((p) => p.id !== producer.id);
+        const newProducerArray = producerArray.filter((p) => p.producer.id !== producer.producer.id);
         newProducerArray.push(producer);
         this.producers.set(routerId, newProducerArray);
     }
 
     removeProducer(routerId, producer) {
         const producerArray = this.producers.get(routerId) || [];
-        const newProducerArray = producerArray.filter((p) => p.id !== producer.id);
+        const newProducerArray = producerArray.filter((p) => p.producer.id !== producer.producer.id);
         this.producers.set(routerId, newProducerArray);
     }
 

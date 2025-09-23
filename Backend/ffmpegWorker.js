@@ -43,9 +43,10 @@ const startFFmpeg = (roomId, sdpText) => {
 
 const stopffmpeg = (roomId) => {
     try {
-        ffmpegProcesses.get(roomId).kill('SIGKILL');
+        ffmpegProcesses.get(roomId)?.kill('SIGKILL');
         // delete ffmpeg store file
-        fs.rmSync(`./public/live/${roomId}`, { recursive: true });
+        fs.existsSync(`./public/live/${roomId}`) && fs.rmSync(`./public/live/${roomId}`, { recursive: true });
+        
         console.log("ffmpeg stopped and file deleted");
     } catch (error) {
         throw error
