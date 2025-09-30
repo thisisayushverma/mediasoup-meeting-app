@@ -14,9 +14,12 @@ import { all } from "axios";
 
 
 const app = express();
+
 app.use(cors({
-    origin: "*",
+    origin: process.env.FRONTEND_URL || "*",
+    credentials: true
 }))
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/live',express.static(path.join(process.cwd(),'public/live')));
