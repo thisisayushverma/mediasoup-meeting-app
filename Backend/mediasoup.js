@@ -80,7 +80,7 @@ class MediaSoupManager {
         if(!router) return;
 
         const transport = await router.createWebRtcTransport({
-            listenIps:[{ip: "127.0.0.1"}],
+            listenIps:[{ip: "0.0.0.0",announcedIp: "backend.onmeet.ayushverma.dev"}],
             enableUdp:true,
             enableTcp:true,
             preferUpd:true

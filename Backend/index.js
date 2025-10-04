@@ -285,7 +285,9 @@ io.on("connection", (socket) => {
         const { roomId } = data;
         socket.leave(roomId);
         console.log("leave room");
-        socket.emit("room-exited", { roomId });
+        const router = worker.getRouter(roomId);
+        socket.to(roomId).emit("user-left", { socketId: socket.id });
+        rooms.removeProducer(router,)
     })
 
     socket.on('disconnect', () => {
@@ -295,70 +297,64 @@ io.on("connection", (socket) => {
     })
 
 
-    socket.on('start-live-stream', async (data) => {
-        try {
-            console.log("start live stream");
-            const { roomId, producerId,appData } = data;
-            const router = worker.getRouter(roomId);
-            const plainTransport = await rooms.createPlainTransport(roomId, worker);
+    // socket.on('start-live-stream', async (data) => {
+    //     try {
+    //         console.log("start live stream");
+    //         const { roomId, producerId,appData } = data;
+    //         const router = worker.getRouter(roomId);
+    //         const plainTransport = await rooms.createPlainTransport(roomId, worker);
 
-            await plainTransport.connect({
-                ip: "127.0.0.1",
-                port: 5004,
-                rtcpPort: 5005
-            });
+    //         await plainTransport.connect({
+    //             ip: "127.0.0.1",
+    //             port: 5004,
+    //             rtcpPort: 5005
+    //         });
 
-            let sdpFFmpeg = `v=0\no=- 0 0 IN IP4 127.0.0.1\ns=Mediasoup RTP Stream\nc=IN IP4 127.0.0.1\nt=0 0\n`
+    //         let sdpFFmpeg = `v=0\no=- 0 0 IN IP4 127.0.0.1\ns=Mediasoup RTP Stream\nc=IN IP4 127.0.0.1\nt=0 0\n`
 
-            const liveScreenConsumer = await plainTransport.consume({
-                producerId: producerId,
-                rtpCapabilities: router.rtpCapabilities
-            });
+    //         const liveScreenConsumer = await plainTransport.consume({
+    //             producerId: producerId,
+    //             rtpCapabilities: router.rtpCapabilities
+    //         });
 
-            const vParams = liveScreenConsumer.rtpParameters;
-            const vCodec = vParams.codecs[0];
-
-
-            sdpFFmpeg += `m=video 5004 RTP/AVP ${vCodec.payloadType}\na=rtpmap:${vCodec.payloadType} ${vCodec.mimeType.split('/')[1]}/${vCodec.clockRate}\na=ssrc:${vParams.encodings[0].ssrc} cname:video\n`;
+    //         const vParams = liveScreenConsumer.rtpParameters;
+    //         const vCodec = vParams.codecs[0];
 
 
-            rooms.getProducers(router.id).map(async (producer) => {
-                console.log("i come",producer.appData);
-                if (producer.appData.mediaTag === "mic") {
-                    console.log("i come for mic");
-                    const audioConsumer = await plainTransport.consume({
-                        producerId: producer.id,
-                        rtpCapabilities: router.rtpCapabilities
-                    });
-
-                    const aParams = audioConsumer.rtpParameters;
-                    const aCodec = aParams.codecs[0]; 
-                    sdpFFmpeg += `m=audio 5004 RTP/AVP ${aCodec.payloadType}\na=rtpmap:${aCodec.payloadType} ${aCodec.mimeType.split('/')[1]}/${aCodec.clockRate}/2\na=ssrc:${aParams.encodings[0].ssrc} cname:audio-${producer.id}\n`;   
-                }
-            })
-
-            startFFmpeg(roomId,sdpFFmpeg);
-
-        } catch (error) {
-            console.log("error", error);
-        }
-    })
-
-    socket.on('end-live-stream', (data) => {
-        console.log("end live stream");
-        try {
-            const { roomId } = data;
-            stopffmpeg(roomId);
-        } catch (error) {
-            console.log("error while deleting stored file", error);
-        }
-    })
+    //         sdpFFmpeg += `m=video 5004 RTP/AVP ${vCodec.payloadType}\na=rtpmap:${vCodec.payloadType} ${vCodec.mimeType.split('/')[1]}/${vCodec.clockRate}\na=ssrc:${vParams.encodings[0].ssrc} cname:video\n`;
 
 
-    socket.on("leave-room",(data)=>{
-        const {roomId} = data;
-        io.to(roomId).emit("user-left",{peerId:socket.id});
-    })
+    //         rooms.getProducers(router.id).map(async (producer) => {
+    //             console.log("i come",producer.appData);
+    //             if (producer.appData.mediaTag === "mic") {
+    //                 console.log("i come for mic");
+    //                 const audioConsumer = await plainTransport.consume({
+    //                     producerId: producer.id,
+    //                     rtpCapabilities: router.rtpCapabilities
+    //                 });
+
+    //                 const aParams = audioConsumer.rtpParameters;
+    //                 const aCodec = aParams.codecs[0]; 
+    //                 sdpFFmpeg += `m=audio 5004 RTP/AVP ${aCodec.payloadType}\na=rtpmap:${aCodec.payloadType} ${aCodec.mimeType.split('/')[1]}/${aCodec.clockRate}/2\na=ssrc:${aParams.encodings[0].ssrc} cname:audio-${producer.id}\n`;   
+    //             }
+    //         })
+
+    //         startFFmpeg(roomId,sdpFFmpeg);
+
+    //     } catch (error) {
+    //         console.log("error", error);
+    //     }
+    // })
+
+    // socket.on('end-live-stream', (data) => {
+    //     console.log("end live stream");
+    //     try {
+    //         const { roomId } = data;
+    //         stopffmpeg(roomId);
+    //     } catch (error) {
+    //         console.log("error while deleting stored file", error);
+    //     }
+    // })
 })
 
 
