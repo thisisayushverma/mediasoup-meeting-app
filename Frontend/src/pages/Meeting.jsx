@@ -53,12 +53,14 @@ function Meeting() {
 
 
         socketRef.current.on("user-left", (data) => {
-            const { peerId } = data;
+            const {socketId} = data
+            console.log("user leave",data);
+            console.log(consumers);
 
             setConsumers(prev => {
                 console.log(prev);
                 const newMap = new Map(prev);
-                newMap.delete(peerId);
+                newMap.delete(socketId);
                 return newMap
             })
 
@@ -293,7 +295,6 @@ function Meeting() {
                     })
                     return tempStream
                 })
-
 
                 socketRef.current.emit("end-live-stream", {
                     roomId: roomID.current
